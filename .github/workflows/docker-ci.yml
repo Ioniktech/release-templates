@@ -1,0 +1,46 @@
+name: Docker CI
+
+# Build-and-smoke-test only; the image is never pushed from here. Docker Hub
+# pushes happen in release.yml, from v* tags only.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & smoke test
+    runs-on: ubuntu-latest
+
+    env:
+      BUILD_NUMBER: ${{ format('{0}-{1}-{2}', github.run_id, github.run_number, github.run_attempt) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        run: echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)" >> "$GITHUB_ENV"
+      - name: Build image
+        run: >-
+          docker build docker
+          --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          --build-arg BUILD_NUMBER=$BUILD_NUMBER
+          --build-arg RELEASE=$RELEASE
+          --build-arg VERSION=${{ github.sha }}
+          -t hello-world:ci
+      - name: Smoke test
+        run: |
+          out="$(docker run --rm hello-world:ci Ioniktech)"
+          echo "$out"
+          echo "$out" | grep -qx 'Hello, Ioniktech!'
+          echo "$out" | grep -qF "release $RELEASE"
