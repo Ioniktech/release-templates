@@ -27,7 +27,7 @@ jobs:
       BUILD_NUMBER: ${{ format('{0}-{1}-{2}', github.run_id, github.run_number, github.run_attempt) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Read version
         run: echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)" >> "$GITHUB_ENV"
       - name: Build image

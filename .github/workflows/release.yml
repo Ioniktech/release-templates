@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Compare tag against every example
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -49,9 +49,9 @@ jobs:
         working-directory: python
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Install
@@ -69,7 +69,7 @@ jobs:
     needs: check
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build image
         run: docker build docker --build-arg RELEASE="${GITHUB_REF_NAME#v}" -t hello-world:test
       - name: Smoke test
@@ -87,9 +87,9 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Build
@@ -124,7 +124,7 @@ jobs:
       BUILD_NUMBER: ${{ format('{0}-{1}-{2}', github.run_id, github.run_number, github.run_attempt) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Read version
         run: |
           echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)" >> "$GITHUB_ENV"

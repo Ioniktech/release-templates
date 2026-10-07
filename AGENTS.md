@@ -80,10 +80,12 @@ consumed is a failed release. The PyPI one sleeps 60s for the CDN.
 
 ## Conventions
 
-- Action versions are pinned at the major: `actions/checkout@v4`,
-  `actions/setup-python@v5`, `github/codeql-action/*@v3`, `docker/*-action@v3`,
+- Action versions are pinned at the major: `actions/checkout@v5`,
+  `actions/setup-python@v6`, `actions/upload-artifact@v5`,
+  `github/codeql-action/*@v4`, `docker/*-action@v3`,
   `docker/build-push-action@v6`. Keep them consistent across all workflows when
-  bumping.
+  bumping. The `actions/*` and `github/*` majors are the Node 24 ones — older
+  majors run on the deprecated Node 20 and warn on every run.
 - Nothing about the owner is hardcoded: the Docker Hub namespace comes from
   `vars.DOCKERHUB_NAMESPACE`, so a fork works unchanged.
 - Build args passed to `docker build` are `BUILD_DATE`, `BUILD_NUMBER`
