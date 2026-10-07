@@ -20,6 +20,7 @@ scripts/  release-helper.sh                          cuts a release end to end
   python-ci.yml   build + test, paths-filtered to python/
   docker-ci.yml   build + smoke test, paths-filtered to docker/
   release.yml     the only workflow that publishes anything
+  notify.yml      workflow_call only: Slack + Mastodon on success
   analysis.yml    CodeQL
 ```
 
@@ -38,9 +39,33 @@ Two classes of workflow, split by trigger:
 publish:
 
 ```
-check ──┬── test-python ── publish-pypi       (environment: pypi)
-        └── test-docker ── publish-dockerhub  (environment: dockerhub)
+check ──┬── test-python ── publish-pypi       (environment: pypi)      ──┬── notify
+        └── test-docker ── publish-dockerhub  (environment: dockerhub) ──┘
 ```
+
+`notify` calls the `notify.yml` reusable workflow and is the only job that is
+not part of publishing.
+
+Notifications are **success-only, and that is enforced structurally**: every
+caller wires `notify` as a job whose `needs` are the jobs that had to pass, and
+GitHub skips a job whose `needs` did not all succeed. Do not add a failure
+branch or an `if: success()` — the first contradicts the policy, the second is
+redundant. `notify.yml` has no failure path at all.
+
+`notify.yml` is called from three places and is deliberately channel-agnostic:
+it always reads a secret named `SLACK_WEBHOOK_URL`, and each caller maps its own
+repository secret onto that name — `SLACK_WEBHOOK_RELEASE` from `release.yml`,
+`SLACK_WEBHOOK_CI` from both CI workflows. That is how one workflow serves two
+channels; a Slack incoming webhook is bound to a single channel, so two channels
+mean two secrets. The `kind` input (`release` | `ci`) picks the message shape and
+is what gates Mastodon: **tooting happens on releases only**. The CI callers are
+also scoped to `github.event_name == 'push'`, so pull requests do not notify.
+
+Those secrets are repository-level, not environment-level, because `notify` runs
+outside `pypi` / `dockerhub`. Every destination is optional — each posting step
+tests its own credential and skips when unset, so a fork releases without any of
+them. The steps test `env.*` rather than `secrets.*` because the secrets context
+is not available to a step-level `if:`.
 
 Three invariants hold it together:
 
@@ -109,7 +134,8 @@ consumed is a failed release. The PyPI one sleeps 60s for the CDN.
 ## Adding a technology
 
 1. New directory with a hello-world artifact and a version declaration.
-2. `<tech>-ci.yml` with a `paths:` filter.
+2. `<tech>-ci.yml` with a `paths:` filter, ending in the same `notify` job the
+   other CI workflows carry.
 3. In `release.yml`: extend the `check` job with that version file, then add a
    `test-<tech>` / `publish-<tech>` pair behind a new environment.
 4. Register it in `.github/dependabot.yml`, and in the CodeQL matrix in

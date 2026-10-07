@@ -156,3 +156,20 @@ jobs:
             VERSION=${{ github.sha }}
       - name: Verify pull from Docker Hub
         run: docker run --rm "$IMAGE_NAME:$RELEASE" | grep -qF "release $RELEASE"
+
+  notify:
+    name: Announce the release
+    needs: [publish-pypi, publish-dockerhub]
+
+    # No `if:` on purpose. A job whose `needs` did not all succeed is skipped,
+    # so a release that failed to publish announces nothing.
+    #
+    # These secrets are read outside the pypi/dockerhub environments, so they
+    # belong to the repository, not to an environment.
+    uses: ./.github/workflows/notify.yml
+    with:
+      kind: release
+      tag: ${{ github.ref_name }}
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_RELEASE }}
+      MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}

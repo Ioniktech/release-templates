@@ -44,7 +44,9 @@ the prompt leaves the commit and tag local, with the commands to push or undo.
 `release.yml` checks the tag against every declared version first and fails the
 whole run before publishing anything if they disagree. Then each technology is
 tested and published independently, each behind a GitHub environment
-(`pypi`, `dockerhub`) that requires a manual approval.
+(`pypi`, `dockerhub`) that requires a manual approval. Once both have published,
+`notify.yml` announces the version in Slack and on Mastodon — only then, since a
+release that did not ship is not worth announcing.
 
 ## Required configuration
 
@@ -53,9 +55,20 @@ tested and published independently, each behind a GitHub environment
 | PyPI project settings | — | Trusted Publisher for `Ioniktech/release-templates`, workflow `release.yml`, environment `pypi`. No token needed. |
 | Environment `dockerhub` | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (secrets) | Docker Hub access token, not the account password. |
 | Environment `dockerhub` | `DOCKERHUB_NAMESPACE` (variable) | Docker Hub org or user that owns the image. |
+| Repository | `SLACK_WEBHOOK_RELEASE` (secret) | Incoming webhook for the channel releases are announced in. Optional. |
+| Repository | `SLACK_WEBHOOK_CI` (secret) | Incoming webhook for the channel green CI runs are reported in. Optional. |
+| Repository | `MASTODON_ACCESS_TOKEN` (secret) | Token with the `write:statuses` scope. Releases only. Optional. |
+| Repository | `MASTODON_INSTANCE` (variable) | Instance hostname to post to, no scheme — e.g. `mastodon.social`. Optional. |
 
 Add a required reviewer to both environments if you want the approval gate to
 actually stop a release.
+
+A Slack incoming webhook is bound to one channel, so the two channels are two
+secrets; `notify.yml` itself is channel-agnostic and each caller maps its own
+secret onto the name the workflow reads. These settings are repository-level,
+not environment-level, because `notify.yml` runs outside the publishing
+environments. Leave any of them unset and that destination is skipped, so a fork
+releases without them.
 
 ## CI
 
