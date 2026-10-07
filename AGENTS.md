@@ -58,8 +58,7 @@ repository secret onto that name — `SLACK_WEBHOOK_RELEASE` from `release.yml`,
 `SLACK_WEBHOOK_CI` from both CI workflows. That is how one workflow serves two
 channels; a Slack incoming webhook is bound to a single channel, so two channels
 mean two secrets. The `kind` input (`release` | `ci`) picks the message shape and
-is what gates Mastodon: **tooting happens on releases only**. The CI callers are
-also scoped to `github.event_name == 'push'`, so pull requests do not notify.
+is what gates Mastodon: **tooting happens on releases only**.
 
 Those secrets are repository-level, not environment-level, because `notify` runs
 outside `pypi` / `dockerhub`. Every destination is optional — each posting step

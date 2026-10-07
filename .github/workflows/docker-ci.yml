@@ -14,6 +14,8 @@ on:
     paths:
       - 'docker/**'
       - '.github/workflows/docker-ci.yml'
+  # On demand, from any branch. Nothing is published here.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,11 +50,6 @@ jobs:
   notify:
     name: Announce the green build
     needs: build
-
-    # Pushes to main only: a notification per pull-request run would bury the
-    # channel. No `if: success()` either -- a skipped job is already the policy.
-    if: github.event_name == 'push'
-
     uses: ./.github/workflows/notify.yml
     with:
       kind: ci
