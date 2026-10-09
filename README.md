@@ -48,6 +48,14 @@ tested and published independently, each behind a GitHub environment
 `notify.yml` announces the version in Slack and on Mastodon — only then, since a
 release that did not ship is not worth announcing.
 
+No workflow spells out an artifact name. The PyPI distribution and the console
+script come from `python/pyproject.toml`, the image name from the
+`org.opencontainers.image.title` label in `docker/Dockerfile`, and the project
+name from the repository itself; the publishing jobs hand those names to
+`notify.yml`, so the announcement links to what was actually published. Rename
+an artifact in the file that declares it and the pipeline follows — there is
+nothing else to keep in step, and nothing to configure.
+
 ## Required configuration
 
 | Where | Name | Purpose |
@@ -88,7 +96,9 @@ licence text and neither build can read a file above its own directory.
 1. Create the directory with a hello-world artifact and a version declaration.
 2. Add `<tech>-ci.yml`, scoped with a `paths:` filter.
 3. Add the version to the `check` job in `release.yml`, plus a `test-<tech>`
-   and `publish-<tech>` job pair.
+   and `publish-<tech>` job pair. Read the artifact name from the technology's
+   own manifest, expose it as a job output, and pass it to `notify.yml` as an
+   input instead of writing it into a message.
 4. Add the ecosystem to `.github/dependabot.yml` and, if it is a new language,
    to the CodeQL matrix in `analysis.yml`.
 5. Copy `LICENSE` into the directory if its build cannot read the root one.
