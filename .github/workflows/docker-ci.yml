@@ -30,7 +30,7 @@ jobs:
       IMAGE_TAG: ci-build  # throwaway, never pushed
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Read version
         run: echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)" >> "$GITHUB_ENV"
       - name: Build image
