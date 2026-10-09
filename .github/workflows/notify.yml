@@ -1,0 +1,118 @@
+name: Notify
+
+# Posts a success notification. Called from release.yml and from the CI
+# workflows, never triggered on its own.
+#
+# Only successes get here on purpose: a caller wires this as a job whose `needs`
+# are the jobs that had to pass, and GitHub skips a job whose `needs` did not all
+# succeed. There is deliberately no failure path.
+#
+# The workflow is channel-agnostic: it always reads `SLACK_WEBHOOK_URL`, and each
+# caller maps its own repository secret onto that name, so CI and releases land
+# in different channels. Mastodon is release-only.
+#
+# Every destination is optional. A fork with no secrets configured skips them and
+# still finishes green.
+
+on:
+  workflow_call:
+    inputs:
+      kind:
+        description: '`release` (announces the version, toots) or `ci` (reports a green build).'
+        type: string
+        required: true
+      tag:
+        description: The release tag with its leading `v` (e.g. `v1.2.3`). Required when kind is `release`.
+        type: string
+        required: false
+      pypi-package:
+        description: Name of the published PyPI distribution. Required when kind is `release`.
+        type: string
+        required: false
+      docker-image:
+        description: Name of the published image, without its namespace. Required when kind is `release`.
+        type: string
+        required: false
+    secrets:
+      SLACK_WEBHOOK_URL:
+        description: Incoming webhook for the channel this caller posts in. Unset = no Slack.
+        required: false
+      MASTODON_ACCESS_TOKEN:
+        description: Token with the `write:statuses` scope. Only used when kind is `release`.
+        required: false
+
+jobs:
+  notify:
+    name: Announce
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      KIND: ${{ inputs.kind }}
+      TAG: ${{ inputs.tag }}
+      # `github.workflow` is the calling workflow's name, which is what makes a
+      # CI message say which pipeline went green.
+      CALLER: ${{ github.workflow }}
+      # Named by the publishing jobs, which read them from pyproject.toml and
+      # the Dockerfile, so no artifact name is spelled out in this workflow.
+      PYPI_PACKAGE: ${{ inputs.pypi-package }}
+      DOCKER_IMAGE: ${{ inputs.docker-image }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+      MASTODON_INSTANCE: ${{ vars.MASTODON_INSTANCE }}
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+
+    steps:
+      - name: Compose the message
+        run: |
+          run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          project="${GITHUB_REPOSITORY#*/}"
+
+          case "$KIND" in
+            release)
+              version="${TAG#v}"
+              pypi="https://pypi.org/project/${PYPI_PACKAGE}/${version}/"
+              docker="https://hub.docker.com/r/${DOCKERHUB_NAMESPACE}/${DOCKER_IMAGE}/tags?name=${version}"
+              slack=":rocket: *${project} ${version}* published — <${pypi}|PyPI> · <${docker}|Docker Hub> · <${run}|run>"
+              toot="${project} ${version} is out: ${PYPI_PACKAGE} on PyPI (${pypi}) and ${DOCKERHUB_NAMESPACE}/${DOCKER_IMAGE} on Docker Hub (${docker})."
+              ;;
+            ci)
+              version=''
+              slack=":white_check_mark: *${CALLER}* green on \`${GITHUB_REF_NAME}\` — <${run}|${GITHUB_SHA:0:7}>"
+              toot=''
+              ;;
+            *)
+              echo "::error::unknown kind '${KIND}', expected 'release' or 'ci'"
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "VERSION=${version}"
+            echo "SLACK_TEXT=${slack}"
+            echo "TOOT_TEXT=${toot}"
+          } >> "$GITHUB_ENV"
+
+      # The secrets context is not available to a step-level `if`, so these
+      # steps test the env vars the secrets were copied into above.
+      - name: Post to Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          jq -n --arg text "$SLACK_TEXT" '{text: $text}' \
+            | curl --fail-with-body --silent --show-error \
+                --header 'Content-Type: application/json' \
+                --data @- "$SLACK_WEBHOOK_URL"
+
+      - name: Post to Mastodon
+        if: inputs.kind == 'release' && env.MASTODON_ACCESS_TOKEN != '' && env.MASTODON_INSTANCE != ''
+        run: |
+          # The idempotency key makes a re-run of this job reuse the existing
+          # toot instead of posting the same release twice.
+          curl --fail-with-body --silent --show-error --output /dev/null \
+            --header "Authorization: Bearer ${MASTODON_ACCESS_TOKEN}" \
+            --header "Idempotency-Key: ${GITHUB_REPOSITORY}@${VERSION}" \
+            --form "status=${TOOT_TEXT}" \
+            --form 'visibility=public' \
+            "https://${MASTODON_INSTANCE}/api/v1/statuses"

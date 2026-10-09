@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ioniktech-hello-world"
+dynamic = ["version"]
+description = "Hello-world package used to exercise the PyPI release pipeline"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+# A copy of the root LICENSE: setuptools cannot reach outside this directory,
+# and a distribution has to carry its own licence text.
+license-files = ["LICENSE"]
+authors = [{ name = "Ioniktech OSPO" }]
+keywords = ["example", "release", "packaging"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Build Tools",
+]
+
+[project.urls]
+Homepage = "https://github.com/Ioniktech/release-templates"
+Source = "https://github.com/Ioniktech/release-templates/tree/main/python"
+
+[project.scripts]
+hello-world = "hello_world.__main__:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.6"]
+
+# Single source of truth for the version: src/hello_world/version.py.
+# The release workflow checks the git tag against this same attribute.
+[tool.setuptools.dynamic]
+version = { attr = "hello_world.version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
