@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.24
 
 # Supplied by the workflows; see ../AGENTS.md for the build-arg contract.
 ARG BUILD_DATE
