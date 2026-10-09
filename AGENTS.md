@@ -15,7 +15,7 @@ more copy-pasteable into a real project, that is the change worth making.
 ```
 python/   pyproject.toml, src/hello_world/, tests/   -> ioniktech-hello-world on PyPI
 docker/   Dockerfile, hello.sh, VERSION              -> <namespace>/hello-world on Docker Hub
-scripts/  release-helper.sh                          cuts a release end to end
+scripts/  release-helper.sh                          bumps on a branch, tags main
 .github/workflows/
   python-ci.yml   build + test, paths-filtered to python/
   docker-ci.yml   build + smoke test, paths-filtered to docker/
@@ -90,13 +90,18 @@ Each job declares the narrowest permissions it needs, with a workflow-level
 `contents: read` as the floor. Do not hoist `id-token: write` to the top level
 of `release.yml`.
 
-`scripts/release-helper.sh` is the intended way to bump: it writes every
-version file, commits, tags and pushes, and it reads those files with the same
-one-liners `release.yml` uses so the script and the gate cannot disagree about
-what a version file says. It is also the reason the version-file formats are
-load-bearing — `write_python` emits single quotes because `cut -d "'"` parses
-them back. Keep `TECHNOLOGIES` and the `read_`/`write_`/`file_of` trio in sync
-with the `check` job.
+`scripts/release-helper.sh` is the intended way to bump, and it is split in
+two because `main` is protected and only takes pull requests. The default mode
+writes every version file on a `release/vX.Y.Z` branch, commits and pushes it
+for review; `--tag`, run afterwards on the merged `main`, creates and pushes the
+tag and nothing else. Keeping the branch push and the tag push apart is what
+keeps a release from needing a branch-protection bypass. `--tag` derives the
+version from the files rather than taking an argument, and it reads those files
+with the same one-liners `release.yml` uses, so the script and the gate cannot
+disagree about what a version file says. It is also the reason the version-file
+formats are load-bearing — `write_python` emits single quotes because
+`cut -d "'"` parses them back. Keep `TECHNOLOGIES` and the
+`read_`/`write_`/`file_of` trio in sync with the `check` job.
 
 Both publish jobs end with a verify step that installs or pulls the artifact
 back from the real registry and asserts the version — a release that cannot be

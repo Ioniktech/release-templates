@@ -18,8 +18,11 @@ A single tag releases everything. The version is declared per technology, and
 - `python/src/hello_world/version.py` → `__version__ = '1.2.3'`
 - `docker/VERSION` → `1.2.3`
 
-`scripts/release-helper.sh` does the whole thing — sets both versions, commits,
-tags and pushes:
+`main` only takes pull requests, so a release is two steps and
+`scripts/release-helper.sh` does both.
+
+**1. The bump.** Writes every version file on a `release/vX.Y.Z` branch,
+commits and pushes it, and prints the pull request to open:
 
 ```sh
 scripts/release-helper.sh --show        # what is the current version?
@@ -34,12 +37,25 @@ The `--add-*` options count one component up from the current version and reset
 the less significant ones, so they need every technology to already agree on
 that version; if they have drifted, pass an explicit `X.Y.Z` instead.
 
-It refuses a version that is not `X.Y.Z` or a tag that already exists locally
-or on `origin`, warns when you are not on `main` or have unrelated uncommitted
-changes, and re-reads every file after writing it. Pushing is confirmed
-interactively because a PyPI version cannot be republished; `--yes` skips the
-prompt and `--dry-run` prints every step without touching anything. Declining
-the prompt leaves the commit and tag local, with the commands to push or undo.
+**2. The tag.** Once that pull request is merged, from an up-to-date `main`:
+
+```sh
+git switch main && git pull
+scripts/release-helper.sh --tag
+```
+
+`--tag` takes no version — it tags what the merged version files already
+declare, which is the same thing `release.yml` will check the tag against. This
+is the step that publishes, so it refuses anything but a clean `main` in sync
+with `origin/main`.
+
+It refuses a version that is not `X.Y.Z`, or a tag or release branch that
+already exists locally or on `origin`, warns when you are not branching off
+`main` or have unrelated uncommitted changes, and re-reads every file after
+writing it. Both pushes are confirmed interactively because a PyPI version
+cannot be republished; `--yes` skips the prompt and `--dry-run` prints every
+step without touching anything. Declining leaves the work local, with the
+commands to push or undo.
 
 `release.yml` checks the tag against every declared version first and fails the
 whole run before publishing anything if they disagree. Then each technology is
