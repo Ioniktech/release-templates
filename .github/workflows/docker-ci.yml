@@ -27,6 +27,7 @@ jobs:
 
     env:
       BUILD_NUMBER: ${{ format('{0}-{1}-{2}', github.run_id, github.run_number, github.run_attempt) }}
+      IMAGE_TAG: ci-build  # throwaway, never pushed
 
     steps:
       - uses: actions/checkout@v5
@@ -39,12 +40,12 @@ jobs:
           --build-arg BUILD_NUMBER=$BUILD_NUMBER
           --build-arg RELEASE=$RELEASE
           --build-arg VERSION=${{ github.sha }}
-          -t hello-world:ci
+          -t "$IMAGE_TAG"
       - name: Smoke test
         run: |
-          out="$(docker run --rm hello-world:ci Ioniktech)"
+          out="$(docker run --rm "$IMAGE_TAG" "$GITHUB_REPOSITORY_OWNER")"
           echo "$out"
-          echo "$out" | grep -qx 'Hello, Ioniktech!'
+          echo "$out" | grep -qx "Hello, ${GITHUB_REPOSITORY_OWNER}!"
           echo "$out" | grep -qF "release $RELEASE"
 
   notify:

@@ -29,7 +29,7 @@ scripts/  release-helper.sh                          cuts a release end to end
 Two classes of workflow, split by trigger:
 
 - **CI (never publishes)** — `python-ci.yml`, `docker-ci.yml`, `analysis.yml` on
-  push and PRs to `main`. `docker-ci.yml` builds to a throwaway `hello-world:ci`
+  push and PRs to `main`. `docker-ci.yml` builds to a throwaway `ci-build`
   tag deliberately, and each CI workflow carries a `paths:` filter so touching
   one technology does not run the other's pipeline.
 - **Release (publishes)** — `release.yml` triggers only on `v*` tags and is the
@@ -113,8 +113,18 @@ consumed is a failed release. The PyPI one sleeps 60s for the CDN.
   against the action's `runs.using:` rather than assuming the next major moved:
   `upload-artifact@v5` shipped Node 24 as preliminary support but still ran on
   Node 20 by default, and only `v6` switched the runtime over.
-- Nothing about the owner is hardcoded: the Docker Hub namespace comes from
-  `vars.DOCKERHUB_NAMESPACE`, so a fork works unchanged.
+- Nothing about the owner or the artifacts is hardcoded in a workflow, so a
+  fork works unchanged. The Docker Hub namespace comes from
+  `vars.DOCKERHUB_NAMESPACE`; everything else is derived from the code that
+  declares it. `publish-pypi` reads the distribution name and the console
+  script out of `python/pyproject.toml` with `tomllib` and exposes the package
+  as a job output; `publish-dockerhub` reads the image name from the
+  `org.opencontainers.image.title` label in `docker/Dockerfile` — which is why
+  that label is load-bearing — and exposes it the same way. `notify.yml` takes
+  both as `pypi-package` / `docker-image` inputs from those jobs and gets the
+  project name from `$GITHUB_REPOSITORY`, so it names no artifact itself. The
+  throwaway CI/test tags (`ci-build`, `release-test`) are deliberately
+  artifact-neutral, and the smoke tests greet `$GITHUB_REPOSITORY_OWNER`.
 - Build args passed to `docker build` are `BUILD_DATE`, `BUILD_NUMBER`
   (`run_id-run_number-run_attempt`), `RELEASE` (the version) and `VERSION` (the
   commit SHA). `RELEASE` is also baked in as an env var so `docker run` reports
@@ -139,7 +149,10 @@ consumed is a failed release. The PyPI one sleeps 60s for the CDN.
 2. `<tech>-ci.yml` with a `paths:` filter, ending in the same `notify` job the
    other CI workflows carry.
 3. In `release.yml`: extend the `check` job with that version file, then add a
-   `test-<tech>` / `publish-<tech>` pair behind a new environment.
+   `test-<tech>` / `publish-<tech>` pair behind a new environment. Derive the
+   artifact name from the technology's own manifest and expose it as a job
+   output, then add a matching optional input to `notify.yml` rather than
+   writing the name into a message.
 4. Register it in `.github/dependabot.yml`, and in the CodeQL matrix in
    `analysis.yml` if it brings a new language.
 5. Add a `read_`/`write_` pair plus a `file_of` case to
@@ -156,8 +169,8 @@ cd python && pip install -e '.[dev]' && ruff check . && pytest
 python -m build && twine check dist/*
 
 # docker
-docker build docker --build-arg RELEASE="$(tr -d '[:space:]' < docker/VERSION)" -t hello-world:ci
-docker run --rm hello-world:ci
+docker build docker --build-arg RELEASE="$(tr -d '[:space:]' < docker/VERSION)" -t ci-build
+docker run --rm ci-build
 
 # workflows
 actionlint

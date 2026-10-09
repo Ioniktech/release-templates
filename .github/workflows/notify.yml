@@ -25,6 +25,14 @@ on:
         description: The release tag with its leading `v` (e.g. `v1.2.3`). Required when kind is `release`.
         type: string
         required: false
+      pypi-package:
+        description: Name of the published PyPI distribution. Required when kind is `release`.
+        type: string
+        required: false
+      docker-image:
+        description: Name of the published image, without its namespace. Required when kind is `release`.
+        type: string
+        required: false
     secrets:
       SLACK_WEBHOOK_URL:
         description: Incoming webhook for the channel this caller posts in. Unset = no Slack.
@@ -47,6 +55,10 @@ jobs:
       # `github.workflow` is the calling workflow's name, which is what makes a
       # CI message say which pipeline went green.
       CALLER: ${{ github.workflow }}
+      # Named by the publishing jobs, which read them from pyproject.toml and
+      # the Dockerfile, so no artifact name is spelled out in this workflow.
+      PYPI_PACKAGE: ${{ inputs.pypi-package }}
+      DOCKER_IMAGE: ${{ inputs.docker-image }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
       MASTODON_INSTANCE: ${{ vars.MASTODON_INSTANCE }}
@@ -56,14 +68,15 @@ jobs:
       - name: Compose the message
         run: |
           run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          project="${GITHUB_REPOSITORY#*/}"
 
           case "$KIND" in
             release)
               version="${TAG#v}"
-              pypi="https://pypi.org/project/ioniktech-hello-world/${version}/"
-              docker="https://hub.docker.com/r/${DOCKERHUB_NAMESPACE}/hello-world/tags?name=${version}"
-              slack=":rocket: *release-templates ${version}* published — <${pypi}|PyPI> · <${docker}|Docker Hub> · <${run}|run>"
-              toot="release-templates ${version} is out: ioniktech-hello-world on PyPI (${pypi}) and ${DOCKERHUB_NAMESPACE}/hello-world on Docker Hub (${docker})."
+              pypi="https://pypi.org/project/${PYPI_PACKAGE}/${version}/"
+              docker="https://hub.docker.com/r/${DOCKERHUB_NAMESPACE}/${DOCKER_IMAGE}/tags?name=${version}"
+              slack=":rocket: *${project} ${version}* published — <${pypi}|PyPI> · <${docker}|Docker Hub> · <${run}|run>"
+              toot="${project} ${version} is out: ${PYPI_PACKAGE} on PyPI (${pypi}) and ${DOCKERHUB_NAMESPACE}/${DOCKER_IMAGE} on Docker Hub (${docker})."
               ;;
             ci)
               version=''

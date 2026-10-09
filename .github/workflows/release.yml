@@ -68,12 +68,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
 
+    env:
+      IMAGE_TAG: release-test  # throwaway, never pushed
+
     steps:
       - uses: actions/checkout@v5
       - name: Build image
-        run: docker build docker --build-arg RELEASE="${GITHUB_REF_NAME#v}" -t hello-world:test
+        run: docker build docker --build-arg RELEASE="${GITHUB_REF_NAME#v}" -t "$IMAGE_TAG"
       - name: Smoke test
-        run: docker run --rm hello-world:test | grep -qx 'Hello, world!'
+        run: docker run --rm "$IMAGE_TAG" | grep -qx 'Hello, world!'
 
   publish-pypi:
     name: Publish to PyPI
@@ -86,12 +89,22 @@ jobs:
     permissions:
       id-token: write
 
+    outputs:
+      package: ${{ steps.meta.outputs.package }}
+
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python 3.13
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Read package metadata
+        id: meta
+        working-directory: python
+        # pyproject.toml already names the distribution and the console script,
+        # so nothing downstream repeats either literal.
+        run: |
+          python -c "import pathlib, tomllib; p = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']; print('package=' + p['name']); print('script=' + next(iter(p['scripts'])))" >> "$GITHUB_OUTPUT"
       - name: Build
         working-directory: python
         run: |
@@ -103,11 +116,14 @@ jobs:
         with:
           packages-dir: python/dist/
       - name: Verify install from PyPI
+        env:
+          PACKAGE: ${{ steps.meta.outputs.package }}
+          SCRIPT: ${{ steps.meta.outputs.script }}
         run: |
           sleep 60  # give PyPI's CDN a moment to serve the new release
-          python -m pip install --upgrade "ioniktech-hello-world==${GITHUB_REF_NAME#v}"
-          test "$(hello-world --version)" = "${GITHUB_REF_NAME#v}"
-          hello-world Ioniktech
+          python -m pip install --upgrade "${PACKAGE}==${GITHUB_REF_NAME#v}"
+          test "$("$SCRIPT" --version)" = "${GITHUB_REF_NAME#v}"
+          "$SCRIPT" "$GITHUB_REPOSITORY_OWNER"
 
   publish-dockerhub:
     name: Publish to Docker Hub
@@ -119,16 +135,28 @@ jobs:
     # DOCKERHUB_NAMESPACE is an environment variable (the Docker Hub org/user).
     environment: dockerhub
 
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+
     env:
-      IMAGE_NAME: ${{ vars.DOCKERHUB_NAMESPACE }}/hello-world
+      NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
       BUILD_NUMBER: ${{ format('{0}-{1}-{2}', github.run_id, github.run_number, github.run_attempt) }}
 
     steps:
       - uses: actions/checkout@v5
-      - name: Read version
+      - name: Read version and image name
+        id: meta
+        # The OCI title in docker/Dockerfile is the image name, so the
+        # repository to push to is derived rather than spelled out here.
         run: |
-          echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)" >> "$GITHUB_ENV"
-          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          image="$(sed -n 's/.*org\.opencontainers\.image\.title="\([^"]*\)".*/\1/p' docker/Dockerfile)"
+          [ -n "$image" ] || { echo "::error file=docker/Dockerfile::no org.opencontainers.image.title label"; exit 1; }
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          {
+            echo "IMAGE_NAME=${NAMESPACE}/${image}"
+            echo "RELEASE=$(tr -d '[:space:]' < docker/VERSION)"
+            echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "$GITHUB_ENV"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Buildx
@@ -170,6 +198,8 @@ jobs:
     with:
       kind: release
       tag: ${{ github.ref_name }}
+      pypi-package: ${{ needs.publish-pypi.outputs.package }}
+      docker-image: ${{ needs.publish-dockerhub.outputs.image }}
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_RELEASE }}
       MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
