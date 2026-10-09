@@ -7,8 +7,8 @@ copied into a project that matters.
 
 | Directory | Artifact | Published to |
 |---|---|---|
-| [`python/`](python/) | `ioniktech-hello-world` package | PyPI (Trusted Publishing, OIDC) |
-| [`docker/`](docker/) | `hello-world` image | Docker Hub (multi-arch) |
+| [`python/`](python/) | [`ioniktech-hello-world`](python/pyproject.toml) package | PyPI (Trusted Publishing, OIDC) |
+| [`docker/`](docker/) | [`hello-world`](docker/Dockerfile) image | Docker Hub (multi-arch) |
 
 ## Releasing
 
@@ -47,6 +47,19 @@ tested and published independently, each behind a GitHub environment
 (`pypi`, `dockerhub`) that requires a manual approval. Once both have published,
 `notify.yml` announces the version in Slack and on Mastodon — only then, since a
 release that did not ship is not worth announcing.
+
+No workflow spells out an artifact name. Each one is read from the file that
+declares it:
+
+- the PyPI distribution and the console script, from `python/pyproject.toml`;
+- the image name, from the `org.opencontainers.image.title` label in
+  `docker/Dockerfile`;
+- the project name, from the repository itself.
+
+The publishing jobs hand those names to `notify.yml`, so the announcement links
+to what was actually published. Rename an artifact in the file that declares it
+and the pipeline follows — there is nothing else to keep in step, and nothing
+to configure.
 
 ## Required configuration
 
@@ -88,7 +101,9 @@ licence text and neither build can read a file above its own directory.
 1. Create the directory with a hello-world artifact and a version declaration.
 2. Add `<tech>-ci.yml`, scoped with a `paths:` filter.
 3. Add the version to the `check` job in `release.yml`, plus a `test-<tech>`
-   and `publish-<tech>` job pair.
+   and `publish-<tech>` job pair. Read the artifact name from the technology's
+   own manifest, expose it as a job output, and pass it to `notify.yml` as an
+   input instead of writing it into a message.
 4. Add the ecosystem to `.github/dependabot.yml` and, if it is a new language,
    to the CodeQL matrix in `analysis.yml`.
 5. Copy `LICENSE` into the directory if its build cannot read the root one.
