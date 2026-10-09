@@ -7,8 +7,8 @@ copied into a project that matters.
 
 | Directory | Artifact | Published to |
 |---|---|---|
-| [`python/`](python/) | `ioniktech-hello-world` package | PyPI (Trusted Publishing, OIDC) |
-| [`docker/`](docker/) | `hello-world` image | Docker Hub (multi-arch) |
+| [`python/`](python/) | [`ioniktech-hello-world`](python/pyproject.toml) package | PyPI (Trusted Publishing, OIDC) |
+| [`docker/`](docker/) | [`hello-world`](docker/Dockerfile) image | Docker Hub (multi-arch) |
 
 ## Releasing
 
