@@ -48,13 +48,18 @@ tested and published independently, each behind a GitHub environment
 `notify.yml` announces the version in Slack and on Mastodon — only then, since a
 release that did not ship is not worth announcing.
 
-No workflow spells out an artifact name. The PyPI distribution and the console
-script come from `python/pyproject.toml`, the image name from the
-`org.opencontainers.image.title` label in `docker/Dockerfile`, and the project
-name from the repository itself; the publishing jobs hand those names to
-`notify.yml`, so the announcement links to what was actually published. Rename
-an artifact in the file that declares it and the pipeline follows — there is
-nothing else to keep in step, and nothing to configure.
+No workflow spells out an artifact name. Each one is read from the file that
+declares it:
+
+- the PyPI distribution and the console script, from `python/pyproject.toml`;
+- the image name, from the `org.opencontainers.image.title` label in
+  `docker/Dockerfile`;
+- the project name, from the repository itself.
+
+The publishing jobs hand those names to `notify.yml`, so the announcement links
+to what was actually published. Rename an artifact in the file that declares it
+and the pipeline follows — there is nothing else to keep in step, and nothing
+to configure.
 
 ## Required configuration
 
