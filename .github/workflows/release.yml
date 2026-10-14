@@ -185,9 +185,27 @@ jobs:
       - name: Verify pull from Docker Hub
         run: docker run --rm "$IMAGE_NAME:$RELEASE" | grep -qF "release $RELEASE"
 
+  github-release:
+    name: Publish the GitHub release
+    runs-on: ubuntu-latest
+    needs: [publish-pypi, publish-dockerhub]
+
+    # The tag alone only shows up under Tags. This is what turns it into an
+    # entry in the Releases section, and it runs after both registries so the
+    # release never advertises artifacts that failed to publish.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the release from the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+
   notify:
     name: Announce the release
-    needs: [publish-pypi, publish-dockerhub]
+    needs: [publish-pypi, publish-dockerhub, github-release]
 
     # No `if:` on purpose. A job whose `needs` did not all succeed is skipped,
     # so a release that failed to publish announces nothing.
