@@ -61,8 +61,9 @@ commands to push or undo.
 whole run before publishing anything if they disagree. Then each technology is
 tested and published independently, each behind a GitHub environment
 (`pypi`, `dockerhub`) that requires a manual approval. Once both have published,
-`notify.yml` announces the version in Slack and on Mastodon — only then, since a
-release that did not ship is not worth announcing.
+the tag is turned into a GitHub release with generated notes, and `notify.yml`
+announces the version in Slack and on Mastodon — only then, since a release that
+did not ship is not worth announcing.
 
 No workflow spells out an artifact name. Each one is read from the file that
 declares it:

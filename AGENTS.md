@@ -39,9 +39,15 @@ Two classes of workflow, split by trigger:
 publish:
 
 ```
-check ──┬── test-python ── publish-pypi       (environment: pypi)      ──┬── notify
+check ──┬── test-python ── publish-pypi       (environment: pypi)      ──┬── github-release ── notify
         └── test-docker ── publish-dockerhub  (environment: dockerhub) ──┘
 ```
+
+`github-release` is what puts the tag in the repository's Releases section — a
+pushed `v*` tag on its own only shows up under Tags. It runs `gh release create
+--generate-notes` with `contents: write`, the only job in the workflow that
+writes to the repository, and it sits after both publish jobs so a release entry
+never advertises artifacts that failed to reach their registry.
 
 `notify` calls the `notify.yml` reusable workflow and is the only job that is
 not part of publishing.
